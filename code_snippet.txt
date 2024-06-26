@@ -1,0 +1,85 @@
+// Client-Side: Handling real-time messaging with Socket.IO
+import { useState, useEffect } from 'react';
+import io from 'socket.io-client';
+
+const socket = io('http://localhost:3001');
+
+export default function ChatApp() {
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+
+  useEffect(() => {
+    // Listen for incoming messages
+    socket.on('message', (message) => {
+      setMessages((prevMessages) => [...prevMessages, message]);
+    });
+
+    // Clean up the socket connection on component unmount
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  const sendMessage = () => {
+    if (newMessage.trim() !== '') {
+      // Send the message to the server
+      socket.emit('message', newMessage);
+      setNewMessage(''); // Clear the input field
+    }
+  };
+
+  return (
+    <div>
+      <div className="messages">
+        {messages.map((message, index) => (
+          <div key={index} className="message">{message}</div>
+        ))}
+      </div>
+      <input
+        type="text"
+        value={newMessage}
+        onChange={(e) => setNewMessage(e.target.value)}
+        placeholder="Type your message..."
+      />
+      <button onClick={sendMessage}>Send</button>
+    </div>
+  );
+}
+
+// Server-Side: Setting up Socket.IO with Express
+const express = require('express');
+const http = require('http');
+const socketIO = require('socket.io');
+
+const app = express();
+const server = http.createServer(app);
+
+const io = socketIO(server, {
+  cors: {
+    origin: 'http://localhost:3000',
+    methods: ['GET', 'POST'],
+  },
+});
+
+app.get('/', (req, res) => {
+  res.send('Hello, this is your Socket.IO server!');
+});
+
+io.on('connection', (socket) => {
+  console.log('User connected');
+
+  // Broadcast received message to all clients
+  socket.on('message', (message) => {
+    io.emit('message', message);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected');
+  });
+});
+
+const PORT = process.env.PORT || 3001;
+
+server.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
